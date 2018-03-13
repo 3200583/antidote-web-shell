@@ -56,6 +56,107 @@ app.use("/", staticRouter);
 /* API routing. */
 var apiRouter = express.Router();
 
+// Document API
+apiRouter.route('/:rep_id/doc/:filename')
+    .get(function(req, res) {
+        res.json({status : 'OK', cont: "SUCCESS BIXENTE"});
+    })
+    .put(function(req, res) {
+        let repId = parseInt(req.params.rep_id);
+        let docId = req.params.filename;
+        let connection = atdClis[repId-1];
+        let doc = connection.map(docId);
+        var update = [];
+        Object.keys(req.body).forEach(function(key, index) {
+            let value = req.body[key];
+            if (Array.isArray(value)) {
+                log("ARRAY", value);
+                update.push(doc.set(key).addAll(value));
+            } else if (typeof value === 'string') {
+                log("STRING", value);
+                update.push(doc.register(key).set(value));
+            } else if (value != null && typeof value === 'object') {
+                log("JSON", value);
+            }
+        });
+        connection.update(update).then(content => {
+            res.json({status: 'OK', cont: 'SUCCESS BIXENTE'});            
+        });
+    });
+
+// Map API
+apiRouter.route('/:rep_id/map/:map_id/')
+    .get(function (req, res) {
+        let repId = parseInt(req.params.rep_id);
+        let mapId = req.params.map_id;
+        let map = atdClis[repId-1].map(mapId);
+        map.read().then(content => {
+            log('Get', mapId, 'from replica', repId);
+            res.json({status : 'OK', cont: content.toJsObject()});
+        });
+    });
+
+apiRouter.route('/:rep_id/map/:map_id/key/:key_id')
+    .put(function(req, res) {
+        let repId = parseInt(req.params.rep_id);
+        let mapId = req.params.map_id;
+        let keyId = req.params.key_id;
+        let op = req.body.op;
+        let value = req.body.value;
+        let connection = atdClis[repId-1];
+        let map = connection.map(mapId);
+        var update = null;
+        var tmp = 0;
+        switch(op) {
+            case 'add':
+                update = map.set(keyId).add(value)
+                break;
+            case 'remove':
+                update = map.set(keyId).remove(value);
+                break;
+            case 'inc':
+                tmp = value === 'undefined' ? 1: value;
+                update = map.counter(keyId).increment(tmp)
+                break;
+            case 'dec':
+                tmp = value === 'undefined' ? 1: value;
+                update = map.counter(keyId).decrement(tmp);
+                break;
+            case 'set':
+                update = map.register(keyId).set(value);
+                break;
+        }
+        connection.update(update).then(resp => {
+            log(op, value, 'to', keyId, 'on replica', repId)
+            res.json({ status: 'OK' });
+        });
+    });
+apiRouter.route('/:rep_id/map/:map_id/type/:type/key/:key_id')
+    .delete(function(req, res) {
+        let repId = parseInt(req.params.rep_id);
+        let mapId = req.params.map_id;
+        let type  = req.params.type;
+        let keyId = req.params.key_id;
+        let connection = atdClis[repId-1];
+        let map = connection.map(mapId);
+        var remove = null;
+        switch(type) {
+            case 'count':
+                remove = map.remove(map.counter(keyId));
+                break;
+            case 'set':
+                remove = map.remove(map.set(keyId));
+                break;
+            case 'reg':
+                remove = map.remove(map.register(keyId));
+                break;
+        }
+        connection.update(remove).then(resp => {
+            log('Delete', keyId, 'from', mapId, 'on replica', repId)
+            res.json({ status : 'OK' });
+        });
+    });
+
 // Set API
 apiRouter.route('/:rep_id/set/:set_id')
     .get(function (req, res) {

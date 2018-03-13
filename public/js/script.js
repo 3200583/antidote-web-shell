@@ -16,10 +16,20 @@ counter:
     count inc <counter_id>
     count dec <counter_id>
     count get <counter_id>
+
+add-wins map:
+    map get <map-key>
+    map <map-key> inc <counter-key> [value]
+    map <map-key> dec <counter-key> [value]
+    map <map-key> add  <set-key> value
+    map <map-key> remove <set-key> value
+    map <map-key> set  <register-key> value
+    map <map-key> delete <type> <key>
 `;
 
 const CMDS = ['set', 'help', 'get', 'add',
-    'remove', 'count', 'inc', 'dec'];
+			  'remove', 'count', 'inc', 'dec',
+              'reg'];
 
 document.onkeydown = function (e) {
     // Ctrl+[1,2,..,9] to switch between terminals
@@ -47,7 +57,7 @@ $(function () {
     terms[0].focus();
 
     for (let i = 1; i <= NUM_TERMS; i++) {
-        // NB: use of let for block scoping 
+        // NB: use of let for block scoping
         // see https://stackoverflow.com/a/750506
 
         // Set partitioning button logic
@@ -110,47 +120,98 @@ function evalAtdCmd(cmd, term) {
         terms[tid].echo(res.status === 'OK' ? OK_MSG : ERROR_MSG);
     }
     switch (args[0]) {
-        case "set":
-        case "count":
-            switch (args[1]) {
-                case "get":
-                    $.ajax({
-                        url: '/api/' + (tid + 1) + '/' + args[0] + '/' + args[2],
-                        type: 'GET',
-                        dataType: 'json',
-                        success: function (res) {
-                            terms[tid].echo(JSON.stringify(res.cont));
-                        }
-                    });
-                    break;
-                case "add":
-                case "inc":
-                    $.ajax({
-                        url: '/api/' + (tid + 1) + '/' + args[0] + '/' + args[2],
-                        type: 'PUT',
-                        data: 'value=' + (args.length > 3 ? args[3] : ''),
-                        dataType: 'json',
-                        success: okErrOutput
-                    });
-                    break;
-                case "remove":
-                case "dec":
-                    $.ajax({
-                        url: '/api/' + (tid + 1) + '/' + args[0] + '/' + args[2],
-                        type: 'DELETE',
-                        data: 'value=' + (args.length > 3 ? args[3] : ''),
-                        dataType: 'json',
-                        success: okErrOutput
-                    });
-                    break;
-                default:
-                    terms[tid].echo(UNKNOWN_MSG);
-            };
+	case "map":
+		map(tid, args);
+		break;
+    case "set":
+    case "count":
+        switch (args[1]) {
+        case "get":
+            $.ajax({
+                url: '/api/' + (tid + 1) + '/' + args[0] + '/' + args[2],
+                type: 'GET',
+                dataType: 'json',
+                success: function (res) {
+                    terms[tid].echo(JSON.stringify(res.cont));
+                }
+            });
             break;
-        case "help":
-            terms[tid].echo(HELP_MSG);
+        case "add":
+        case "inc":
+            $.ajax({
+                url: '/api/' + (tid + 1) + '/' + args[0] + '/' + args[2],
+                type: 'PUT',
+                data: 'value=' + (args.length > 3 ? args[3] : ''),
+                dataType: 'json',
+                success: okErrOutput
+            });
+            break;
+        case "remove":
+        case "dec":
+            $.ajax({
+                url: '/api/' + (tid + 1) + '/' + args[0] + '/' + args[2],
+                type: 'DELETE',
+                data: 'value=' + (args.length > 3 ? args[3] : ''),
+                dataType: 'json',
+                success: okErrOutput
+            });
             break;
         default:
-            terms[tid].echo(UNKNOWN_MSG)
+            terms[tid].echo(UNKNOWN_MSG);
+        };
+        break;
+    case "help":
+        terms[tid].echo(HELP_MSG);
+        break;
+    default:
+        terms[tid].echo(UNKNOWN_MSG)
+    }
+}
+
+function map(tid, args) {
+    // GET
+	if (args.length == 3 && args[1] === 'get') {
+		let url = '/api/' + (tid+1) + '/map/' + args[2];
+		$.ajax({
+        	url: url,
+        	type: 'GET',
+        	dataType: 'json',
+        	success: function (res) {
+				terms[tid].echo(JSON.stringify(res.cont));
+			}
+    	});
+	}
+    // ADD, REMOVE, INCR, SET
+	else if (args.length >= 4 && ['add', 'remove', 'inc', 'dec', 'set'].includes(args[2])) {
+        if (args[2] !== 'inc' && args.length < 5) {
+            terms[tid].echo("Error: argument missing");
+            return;
+        }
+		let url = '/api/' + (tid+1) + '/map/' + args[1] + '/key/' + args[3];
+		$.ajax({
+        	url: url,
+        	type: 'PUT',
+        	data: "op=" + args[2] + "&value=" + args[4],
+        	dataType: 'json',
+        	success: function (res) {
+				terms[tid].echo(res.status === 'OK' ? OK_MSG : ERROR_MSG);
+			}
+    	});
+	}
+    // REMOVE
+    else if (args.length == 5  && ['count', 'set', 'reg'].includes(args[3])
+        && args[2] === 'delete') {
+        let url = '/api/' + (tid + 1) + '/map/' + args[1] + '/type/' + args[3] + '/key/' + args[4];
+        $.ajax({
+            url: url,
+            type: 'DELETE',
+            dataType: 'json',
+            success: function (res) {
+                terms[tid].echo(res.status === 'OK' ? OK_MSG : ERROR_MSG);
+            }
+        }); 
+    }
+    else {
+        terms[tid].echo("Error: bad operation");
     }
 }
