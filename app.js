@@ -59,30 +59,36 @@ var apiRouter = express.Router();
 // Document API
 apiRouter.route('/:rep_id/doc/:filename')
     .get(function(req, res) {
-        res.json({status : 'OK', cont: "SUCCESS BIXENTE"});
+        res.json({status : 'OK'});
     })
     .put(function(req, res) {
         let repId = parseInt(req.params.rep_id);
         let docId = req.params.filename;
         let connection = atdClis[repId-1];
         let doc = connection.map(docId);
-        var update = [];
-        Object.keys(req.body).forEach(function(key, index) {
-            let value = req.body[key];
-            if (Array.isArray(value)) {
-                log("ARRAY", value);
-                update.push(doc.set(key).addAll(value));
-            } else if (typeof value === 'string') {
-                log("STRING", value);
-                update.push(doc.register(key).set(value));
-            } else if (value != null && typeof value === 'object') {
-                log("JSON", value);
-            }
-        });
+        var update = create_update_from_json(req.body, [], doc, connection);
         connection.update(update).then(content => {
-            res.json({status: 'OK', cont: 'SUCCESS BIXENTE'});            
+            res.json({status: 'OK'});            
         });
     });
+
+function create_update_from_json(object, update, map) {
+    Object.keys(object).forEach(function(key, index) {
+        let value = object[key];
+        if (Array.isArray(value)) {
+            log("ARRAY", value);
+            update.push(map.set(key).addAll(value));
+        } else if (typeof value === 'string' || Number.isInteger(value)) {
+            log("STRING", value);
+            update.push(map.register(key).set(value));
+        } else if (value != null && typeof value === 'object') {
+            log("JSON", value);
+            let tmp_map = map.map(key);
+            let embedded_update = create_update_from_json(value, update, tmp_map);
+        }
+    });
+    return update;
+}
 
 // Map API
 apiRouter.route('/:rep_id/map/:map_id/')
