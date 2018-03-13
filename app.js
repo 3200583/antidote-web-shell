@@ -59,7 +59,13 @@ var apiRouter = express.Router();
 // Document API
 apiRouter.route('/:rep_id/doc/:filename')
     .get(function(req, res) {
-        res.json({status : 'OK'});
+        let repId = parseInt(req.params.rep_id);
+        let doc = req.params.filename;
+        let map = atdClis[repId-1].map(doc);
+        map.read().then(content => {
+            log('Get', doc, 'from replica', repId);
+            res.json({status : 'OK', cont: content.toJsObject()});
+        });
     })
     .put(function(req, res) {
         let repId = parseInt(req.params.rep_id);
