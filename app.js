@@ -82,13 +82,10 @@ function create_update_from_json(object, update, map) {
     Object.keys(object).forEach(function(key, index) {
         let value = object[key];
         if (Array.isArray(value)) {
-            log("ARRAY", value);
             update.push(map.set(key).addAll(value));
         } else if (typeof value === 'string' || Number.isInteger(value)) {
-            log("STRING", value);
             update.push(map.register(key).set(value));
         } else if (value != null && typeof value === 'object') {
-            log("JSON", value);
             let tmp_map = map.map(key);
             let embedded_update = create_update_from_json(value, update, tmp_map);
         }
