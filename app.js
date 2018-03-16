@@ -94,6 +94,8 @@ function create_update_from_json(object, update, map) {
 }
 
 // Map API
+
+// Get a map 
 apiRouter.route('/:rep_id/map/:map_id/')
     .get(function (req, res) {
         let repId = parseInt(req.params.rep_id);
@@ -105,6 +107,7 @@ apiRouter.route('/:rep_id/map/:map_id/')
         });
     });
 
+// Update a key
 apiRouter.route('/:rep_id/map/:map_id/key/:key_id')
     .put(function(req, res) {
         let repId = parseInt(req.params.rep_id);
@@ -132,7 +135,11 @@ apiRouter.route('/:rep_id/map/:map_id/key/:key_id')
                 update = map.counter(keyId).decrement(tmp);
                 break;
             case 'set':
-                update = map.register(keyId).set(value);
+                var tmp = value;
+                if (Number.isInteger(value)) {
+                    tmp = parseInt(value);
+                }
+                update = map.register(keyId).set(tmp);
                 break;
         }
         connection.update(update).then(resp => {
@@ -140,7 +147,35 @@ apiRouter.route('/:rep_id/map/:map_id/key/:key_id')
             res.json({ status: 'OK' });
         });
     });
+
+// Get/Remove a key
 apiRouter.route('/:rep_id/map/:map_id/type/:type/key/:key_id')
+    .get(function(req, res){
+        let repId = parseInt(req.params.rep_id);
+        let mapId = req.params.map_id;
+        let keyId = req.params.key_id;
+        let type = req.params.type;
+        let map = atdClis[repId-1].map(mapId);
+        var value = 'undefined';
+        switch(type) {
+            case 'count':
+                value = map.counter(keyId);
+                break;
+            case 'set':
+                value = map.set(keyId);
+                break;
+            case 'reg':
+                value = map.reg(keyId);
+                break;
+        }
+        value.read().then(content => {
+            var tmp = content;
+            if (tmp === undefined) {
+                tmp = 'undefined';
+            }
+            res.json({ status: 'OK', cont: tmp });            
+        });
+    })
     .delete(function(req, res) {
         let repId = parseInt(req.params.rep_id);
         let mapId = req.params.map_id;

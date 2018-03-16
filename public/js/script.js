@@ -25,6 +25,7 @@ add-wins map:
     map <map-key> remove <set-key> value
     map <map-key> set  <register-key> value
     map <map-key> delete <type> <key>
+    map <map-key> get <type> <key>
 `;
 
 const CMDS = ['set', 'help', 'get', 'add',
@@ -169,7 +170,7 @@ function evalAtdCmd(cmd, term) {
 }
 
 function map(tid, args) {
-    // GET
+    // map get <map-key>
 	if (args.length == 3 && args[1] === 'get') {
 		let url = '/api/' + (tid+1) + '/map/' + args[2];
 		$.ajax({
@@ -181,7 +182,7 @@ function map(tid, args) {
 			}
     	});
 	}
-    // ADD, REMOVE, INCR, SET
+    // map <map-key> <op> <key> [value]
 	else if (args.length >= 4 && ['add', 'remove', 'inc', 'dec', 'set'].includes(args[2])) {
         if (args[2] !== 'inc' && args.length < 5) {
             terms[tid].echo("Error: argument missing");
@@ -197,13 +198,25 @@ function map(tid, args) {
 				terms[tid].echo(res.status === 'OK' ? OK_MSG : ERROR_MSG);
 			}
     	});
-	}
-    // REMOVE
+    }
+    // map <map-key> get <type> <key>
+    else if (args.length == 5 && ['count', 'set', 'reg'].includes(args[3]) &&
+    args[2] === 'get') {
+        let url = '/api/' + (tid + 1) + '/map/' + args[1] + '/type/' + args[3] + '/key/' + args[4];
+		$.ajax({
+        	url: url,
+            type: 'GET',
+        	dataType: 'json',
+        	success: function (res) {
+				terms[tid].echo(JSON.stringify(res.cont));
+			}
+    	});
+    }
+    // map <map-key> delete <type> <key>
     else if (args.length == 5  && ['count', 'set', 'reg'].includes(args[3])
         && args[2] === 'delete') {
-        let url = '/api/' + (tid + 1) + '/map/' + args[1] + '/type/' + args[3] + '/key/' + args[4];
         $.ajax({
-            url: url,
+            url: '/api/' + (tid + 1) + '/map/' + args[1] + '/type/' + args[3] + '/key/' + args[4],
             type: 'DELETE',
             dataType: 'json',
             success: function (res) {
